@@ -1,0 +1,48 @@
+From ubuntu:18.04
+MAINTAINER Asma
+ENV HADOOP_HOME /usr/local/hadoop
+ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk-amd64
+ENV SPARK_HOME /usr/local/spark
+
+USER root
+WORKDIR /root
+RUN DEBIAN_FRONTEND=noninteractive apt-get update
+
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server && \
+	ssh-keygen -t rsa -f ~/.ssh/id_rsa -P ""		   && \
+	cp ~/.ssh/id_rsa.pub ~/.ssh/authorized_keys && \
+	chmod 0600 ~/.ssh/authorized_keys
+
+RUN DEBIAN_FRONTEND=noninteractive apt install -y openjdk-8-jdk
+RUN DEBIAN_FRONTEND=noninteractive apt install -y wget && \
+	wget https://archive.apache.org/dist/hadoop/core/hadoop-3.1.1/hadoop-3.1.1.tar.gz && \
+	DEBIAN_FRONTEND=noninteractive apt-get install -y tar unzip && \
+	tar -xzf hadoop-3.1.1.tar.gz && \
+	mv hadoop-3.1.1 $HADOOP_HOME && \
+	rm hadoop-3.1.1.tar.gz && \
+	mkdir -p /home/hadoop_tmp/{data,name} && \
+	chmod -R 777 /home/hadoop_tmp && \
+	wget https://archive.apache.org/dist/spark/spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz && \
+	tar -xzf spark-2.4.0-bin-hadoop2.7.tgz && \
+	mv spark-2.4.0-bin-hadoop2.7 $SPARK_HOME && \
+	rm spark-2.4.0-bin-hadoop2.7.tgz
+
+
+ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk-amd64 
+ENV PATH $JAVA_HOME/bin:$PATH 
+ENV PATH $HADOOP_HOME/bin:$HADOOP_HOME/sbin:$PATH 
+ENV HADOOP_CONF_DIR $HADOOP_HOME/etc/hadoop
+ENV PATH $SPARK_HOME/bin:$SPARK_HOME/sbin:$PATH 
+
+ADD ./start-ssh.sh /start-ssh.sh
+RUN chown root:root /start-ssh.sh
+RUN chmod +x /start-ssh.sh
+
+COPY ./slave/* /usr/local/hadoop/etc/hadoop/
+ADD ./spark/slaves $SPARK_HOME/conf/slaves
+ADD ./ssh_config /root/.ssh/config
+#Yarn ports
+EXPOSE 8088 8050 8025 8030
+#Other ports
+EXPOSE 9870 22 9864 9866 50070 50075 50030 50060
+CMD ["/start-ssh.sh", "-d"]

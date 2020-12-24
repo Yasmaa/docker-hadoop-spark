@@ -1,0 +1,80 @@
+version: "2"
+
+services:
+  master:
+    build:
+      context: .
+      dockerfile: DockerfileMaster
+    container_name: master
+    hostname: master
+    tty: true
+    ports:
+      - 9870:9870
+      - 8088:8088
+      - 9866:9866
+      - 9864:9864
+    volumes:
+      - hadoop_master:/opt/hadoop/dfs/master
+    env_file:
+      - ./hadoop.env
+    extra_hosts:
+      - "slave1:172.20.0.3"
+      - "slave2:172.20.0.4"
+    networks:
+      hadoop_cluster:
+        ipv4_address: 172.20.0.2
+
+  slave1:
+    build:
+      context: .
+      dockerfile: DockerfileSlave1
+    container_name: slave1
+    hostname: slave1
+    volumes:
+      - hadoop_slave1:/hadoop/dfs/slave1
+    environment:
+      SERVICE_PRECONDITION: "master:9870"
+    env_file:
+      - ./hadoop.env
+    extra_hosts:
+      - "master:172.20.0.2"
+      - "slave2:172.20.0.4"      
+    depends_on:
+      - master
+    networks:
+      hadoop_cluster:
+        ipv4_address: 172.20.0.3
+
+  slave2:
+    build:
+      context: .
+      dockerfile: DockerfileSlave2
+    container_name: slave2
+    hostname: slave2
+    volumes:
+      - hadoop_master:/hadoop/dfs/slave2
+    environment:
+      SERVICE_PRECONDITION: "master:9870"
+    env_file:
+      - ./hadoop.env
+    extra_hosts:
+      - "slave1:172.20.0.3"
+      - "master:172.20.0.2"      
+    depends_on:
+      - master
+    networks:
+      hadoop_cluster:
+        ipv4_address: 172.20.0.4
+
+volumes:
+  hadoop_master:
+  hadoop_slave1:
+  hadoop_slave2:
+
+networks:
+  hadoop_cluster:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+          gateway: 172.20.0.1
